@@ -132,36 +132,56 @@ module.exports = function RedditAPI(conn) {
       }
       var limit = options.numPerPage || 25; // if options.numPerPage is "falsy" then use 25
       var offset = (options.page || 0) * limit;
-      
+    
       conn.query(`
-        SELECT posts.id, posts.title, posts.url, posts.userId, posts.createdAt, posts.updatedAt, users.id as userId, users.username, users.createdAt as userCreated, users.updatedAt as userUpdated FROM posts join users on users.id = posts.userId WHERE users.Id=${usuario}
-        LIMIT ? OFFSET ?
-        `, [limit, offset],
+            SELECT posts.id, posts.title, posts.url, posts.userId, posts.createdAt, posts.updatedAt, users.id as userId, users.username, users.createdAt as userCreated, users.updatedAt as userUpdated FROM posts join users on users.id = posts.userId WHERE users.Id=${usuario}
+            LIMIT ? OFFSET ?
+            `, [limit, offset],
         function(err, results) {
           if (err) {
             callback(err);
           }
           else {
-            var res =  {
-                userId: results[0].userId,
-                username: results[0].username,
-                createdAt: results[0].userCreated,
-                updatedAt: results[0].userUpdated,
-                posts: results.map(function(curr){
-                  return {
-                    postid: curr.id,
-                    postTitle: curr.title,
-                    postUrl: curr.url,
-                    createdAt: curr.createdAt,
-                    updatedAt: curr.updatedAt,
+            var res = {
+              userId: results[0].userId,
+              username: results[0].username,
+              createdAt: results[0].userCreated,
+              updatedAt: results[0].userUpdated,
+              posts: results.map(function(curr) {
+                return {
+                  postid: curr.id,
+                  postTitle: curr.title,
+                  postUrl: curr.url,
+                  createdAt: curr.createdAt,
+                  updatedAt: curr.updatedAt,
                 };
               })
-            };  
+            };
             callback(null, res);
-            }
+          }
         });
+    },
+    getSinglePost: function(postId, callback) {
+    conn.query(`
+            SELECT posts.id, posts.title, posts.url, posts.userId, posts.createdAt, posts.updatedAt, users.id as userId, users.username FROM posts join users on users.id = posts.userId WHERE posts.id=${postId}`,
+        function(err, results) {
+          if (err) {
+            callback(err);
+          }
+          else {
+            callback(null, {
+              postId: results[0].id,
+              postTitle: results[0].title,
+              postUrl: results[0].url,
+              postCreated: results[0].createdAt,
+              postUpdated: results[0].updatedAt,
+              userId: results[0].userId,
+              username: results[0].username
+            });
           }
         }
-      ;
-    };
+      );
+    }
+  };
+};
 
