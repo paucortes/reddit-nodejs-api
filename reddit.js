@@ -95,9 +95,7 @@ module.exports = function RedditAPI(conn) {
       var offset = (options.page || 0) * limit;
       
       conn.query(`
-        SELECT \`id\`,\`title\`,\`url\`,\`userId\`, \`createdAt\`, \`updatedAt\`
-        FROM \`posts\`
-        ORDER BY \`createdAt\` DESC
+        SELECT posts.id, posts.title, posts.url, posts.userId, posts.createdAt, posts.updatedAt, users.id as usersId, users.username, users.createdAt as usersCreate, users.updatedAt as usersUpd FROM posts join users on users.id = posts.userId order by posts.createdAt
         LIMIT ? OFFSET ?
         `, [limit, offset],
         function(err, results) {
@@ -105,10 +103,65 @@ module.exports = function RedditAPI(conn) {
             callback(err);
           }
           else {
-            callback(null, results);
+            var mapped = results.map(function(curr){
+              return {
+                id: curr.id,
+                title: curr.title,
+                url: curr.url,
+                createdAt: curr.createdAt,
+                updatedAt: curr.updatedAt,
+                  user: {
+                  userId: curr.usersId,
+                  username: curr.username,
+                  createdAt: curr.usersCreate,
+                  updatedAt: curr.usersUpd
+                }
+              };
+            });
+            
+            callback(null, mapped);
           }
         }
       );
-    }
-  }
-}
+    },
+    getAllPostsForUser: function(usuario, options, callback) {
+      // In case we are called without an options parameter, shift all the parameters manually
+      if (!callback) {
+        callback = options;
+        options = {};
+      }
+      var limit = options.numPerPage || 25; // if options.numPerPage is "falsy" then use 25
+      var offset = (options.page || 0) * limit;
+      
+      conn.query(`
+        SELECT posts.id, posts.title, posts.url, posts.userId, posts.createdAt, posts.updatedAt, users.id as userId, users.username, users.createdAt as userCreated, users.updatedAt as userUpdated FROM posts join users on users.id = posts.userId WHERE users.Id=${usuario}
+        LIMIT ? OFFSET ?
+        `, [limit, offset],
+        function(err, results) {
+          if (err) {
+            callback(err);
+          }
+          else {
+            var res =  {
+                userId: results[0].userId,
+                username: results[0].username,
+                createdAt: results[0].userCreated,
+                updatedAt: results[0].userUpdated,
+                posts: results.map(function(curr){
+                  return {
+                    postid: curr.id,
+                    postTitle: curr.title,
+                    postUrl: curr.url,
+                    createdAt: curr.createdAt,
+                    updatedAt: curr.updatedAt,
+                };
+              })
+            };  
+            callback(null, res);
+            }
+        });
+          }
+        }
+      ;
+    };
+
