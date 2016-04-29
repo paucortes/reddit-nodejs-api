@@ -58,9 +58,9 @@ module.exports = function RedditAPI(conn) {
         }
       });
     },
-    createPost: function(post, callback) {
+    createPost: function(post, subredditId, callback) {
       conn.query(
-        'INSERT INTO `posts` (`userId`, `title`, `url`, `createdAt`) VALUES (?, ?, ?, ?)', [post.userId, post.title, post.url, null],
+        'INSERT INTO `posts` (`userId`, `title`, `url`, `createdAt`, `subredditId`) VALUES (?, ?, ?, ?, ?)', [post.userId, post.title, post.url, null, subredditId],
         function(err, result) {
           if (err) {
             callback(err);
@@ -71,7 +71,7 @@ module.exports = function RedditAPI(conn) {
             the post and send it to the caller!
             */
             conn.query(
-              'SELECT `id`,`title`,`url`,`userId`, `createdAt`, `updatedAt` FROM `posts` WHERE `id` = ?', [result.insertId],
+              'SELECT `id`,`title`,`url`,`userId`, `createdAt`, `updatedAt`, `subredditId` FROM `posts` WHERE `id` = ?', [result.insertId],
               function(err, result) {
                 if (err) {
                   callback(err);
@@ -95,7 +95,7 @@ module.exports = function RedditAPI(conn) {
       var offset = (options.page || 0) * limit;
       
       conn.query(`
-        SELECT posts.id, posts.title, posts.url, posts.userId, posts.createdAt, posts.updatedAt, users.id as usersId, users.username, users.createdAt as usersCreate, users.updatedAt as usersUpd FROM posts join users on users.id = posts.userId order by posts.createdAt
+        SELECT posts.id, posts.title, posts.url, posts.userId, posts.createdAt, posts.updatedAt, posts.subredditId, users.id AS usersId, users.username, users.createdAt AS usersCreate, users.updatedAt AS usersUpd, subreddits.id AS subId, subreddits.name AS subName, subreddits.description AS subDesc, subreddits.createdAt as subCreatedAt FROM posts JOIN users ON users.id = posts.userId RIGHT JOIN subreddits ON posts.subredditId = subreddits.id ORDER BY posts.createdAt
         LIMIT ? OFFSET ?
         `, [limit, offset],
         function(err, results) {
@@ -115,7 +115,13 @@ module.exports = function RedditAPI(conn) {
                   username: curr.username,
                   createdAt: curr.usersCreate,
                   updatedAt: curr.usersUpd
-                }
+                    },
+                subredit: !curr.subId ? "No subreddit" : {
+                  subredditId: curr.subId,
+                  subredditName: curr.subName,
+                  subredditDesc: curr.subDesc,
+                  subredditCreatedAt: curr.subCreatedAt
+                  }
               };
             });
             
@@ -181,7 +187,87 @@ module.exports = function RedditAPI(conn) {
           }
         }
       );
+    },
+    createSubreddit: function(sub, callback) {
+      conn.query(
+        'INSERT INTO subreddits (name, description) VALUES (?, ?)', [sub.name, sub.description],
+        function(err, result) {
+          if (err) {
+            callback(err);
+          }
+          else {
+            /*
+            Post inserted successfully. Let's use the result.insertId to retrieve
+            the post and send it to the caller!
+            */
+            conn.query(
+              'SELECT id, name, description, createdAt FROM subreddits WHERE id = ?', [result.insertId],
+              function(err, result) {
+                if (err) {
+                  callback(err);
+                }
+                else {
+                  callback(null, result[0]);
+                }
+              }
+            );
+          }
+        }
+      );
+    },
+    getAllSubreddits: function(options, callback) {
+      if (!callback) {
+        callback = options;
+        options = {};
+      }
+      var limit = options.numPerPage || 25; // if options.numPerPage is "falsy" then use 25
+      var offset = (options.page || 0) * limit;
+        conn.query(
+            'SELECT id, name, description, createdAt FROM subreddits ORDER BY createdAt LIMIT ? OFFSET ?', [limit, offset],
+          function(err, result) {
+            if (err) {
+              callback(err);
+            }
+            else {
+              var mapped = result.map(function(curr){
+              return {
+                subId: curr.id,
+                subName: curr.name,
+                subDesc: curr.description,
+                subCreatedAt: curr.createdAt
+                };
+              });
+            callback(null, mapped);
+          }
+      });
+    },
+    createComment: function(comment, callback) {
+      var parentId = comment.parentId;
+      conn.query(
+        'INSERT INTO `comments` (`text`, `userId`, `postId`, `parentId`, `createdAt`) VALUES (?, ?, ?, ?, ?)', [comment.text, comment.userId, comment.postId, parentId?parent: null, null],
+        function(err, result) {
+          if (err) {
+            callback(err);
+          }
+          else {
+            /*
+            Comment inserted successfully. Let's use the result.insertId to retrieve
+            the post and send it to the caller!
+            */
+            conn.query(
+              'SELECT `text`,`userId`,`postId`,`parentId`, `createdAt` FROM `comments` WHERE `id` = ?', [result.insertId],
+              function(err, result) {
+                if (err) {
+                  callback(err);
+                }
+                else {
+                  callback(null, result[0]);
+                }
+              }
+            );
+          }
+        }
+      );
     }
   };
 };
-

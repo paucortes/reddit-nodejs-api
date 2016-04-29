@@ -32,9 +32,27 @@ CREATE TABLE `subreddits` (
   `createdAt` TIMESTAMP NOT NULL DEFAULT 0,
   `updatedAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `name` (`name`),
-  ON DELETE SET NULL
+  UNIQUE KEY `name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-ALTER TABLE `posts` ADD COLUMN `subredditId`;
-ALTER TABLE `posts` ADD CONSTRAINT FOREIGN KEY `subredditId` REFERENCES `subreddits` (id);
+-- Adding the column to posts and the foreign key
+ALTER TABLE posts ADD COLUMN subredditId INT(11);
+ALTER TABLE posts ADD FOREIGN KEY (subredditId) REFERENCES subreddits (id);
+
+-- this will create the comments table
+CREATE TABLE `comments` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `text` VARCHAR(10000) NOT NULL,
+  `createdAt` TIMESTAMP NOT NULL DEFAULT 0,
+  `updatedAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `userId` int(11) DEFAULT NULL,
+  `postId` int(11) DEFAULT NULL,
+  `parentId` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- adding the foreign keys linking comments to the userId and the postId, as well as to the comment replied to if any
+ALTER TABLE comments ADD FOREIGN KEY (userId) REFERENCES users (id);
+ALTER TABLE comments ADD FOREIGN KEY (postId) REFERENCES posts (id);
+ALTER TABLE comments ADD FOREIGN KEY (parentId) REFERENCES comments (id);
+
