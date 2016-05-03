@@ -1,5 +1,7 @@
-// load the mysql library
+// load the mysql library and express
 var mysql = require('mysql');
+var express = require('express');
+var app = express();
 
 // create a connection to our Cloud9 server
 var connection = mysql.createConnection({
@@ -13,30 +15,12 @@ var connection = mysql.createConnection({
 var reddit = require('./reddit');
 var redditAPI = reddit(connection);
 
-// It's request time!
-// redditAPI.createUser({
-//   username: 'hello23',
-//   password: 'xxx'
-// }, function(err, user) {
-//   if (err) {
-//     console.log(err);
-//   }
-//   else {
-//     redditAPI.createPost({
-//       title: 'hi reddit!',
-//       url: 'https://www.reddit.com',
-//       userId: user.id
-//     }, function(err, post) {
-//       if (err) {
-//         console.log(err);
-//       }
-//       else {
-//         console.log(post);
-//       }
-//     });
-//   }
-// });
 
-// redditAPI.getAllPosts(function(err, result) {
-//   console.log(result);
-// });
+
+
+
+var server = app.listen(process.env.PORT, process.env.IP, function () {
+  var host = server.address().address;
+  var port = server.address().port;
+  console.log('Listening at http://%s:%s', host, port);
+});
