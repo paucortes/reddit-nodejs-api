@@ -3,6 +3,7 @@ var mysql = require('mysql');
 var express = require('express');
 var app = express();
 var moment = require('moment');
+var bodyParser = require('body-parser');
 
 // create a connection to our Cloud9 server
 var connection = mysql.createConnection({
@@ -18,7 +19,7 @@ var redditAPI = reddit(connection);
 
 function getHomePage(sortingMethod, callback) {
     if (!sortingMethod || sortingMethod === "new") {
-        connection.query('SELECT p.id AS postId, p.title AS postTitle, p.url AS postUrl, p.userId AS postCreatedByUserId, users.username AS postCreatedByUsername, p.createdAt AS postCreationDate FROM posts AS p JOIN users ON users.id=p.userId ORDER BY postCreationDate LIMIT 25', function(error, result) {
+        connection.query('SELECT p.id AS postId, p.title AS postTitle, p.url AS postUrl, p.userId AS postCreatedByUserId, users.username AS postCreatedByUsername, p.createdAt AS postCreationDate FROM posts AS p JOIN users ON users.id=p.userId ORDER BY postCreationDate DESC LIMIT 25', function(error, result) {
         if (error) {
             callback(error);
         }
@@ -28,7 +29,17 @@ function getHomePage(sortingMethod, callback) {
         });
     }
     else if (sortingMethod === "top") {
-        connection.query(`SELECT p.id AS postId, p.title AS postTitle, p.url AS postUrl, p.userId AS postCreatedByUserId, users.username AS postCreatedByUsername, p.createdAt AS postCreationDate, SUM(v.vote) as voteScore FROM posts AS p JOIN users ON users.id=p.userId JOIN votes AS v ON p.id = v.postId GROUP BY p.id ORDER BY voteScore`, function(error, result) {
+        connection.query(`SELECT p.id AS postId, p.title AS postTitle, p.url AS postUrl, p.userId AS postCreatedByUserId, users.username AS postCreatedByUsername, p.createdAt AS postCreationDate, SUM(v.vote) as voteScore FROM posts AS p JOIN users ON users.id=p.userId JOIN votes AS v ON p.id = v.postId GROUP BY p.id ORDER BY voteScore DESC`, function(error, result) {
+        if (error) {
+            callback(error);
+        }
+        else {
+            callback(null, result);
+        }
+        });
+    }
+    else if (sortingMethod === "hot") {
+        connection.query(`SELECT p.id AS postId, p.title AS postTitle, p.url AS postUrl, p.userId AS postCreatedByUserId, users.username AS postCreatedByUsername, p.createdAt AS postCreationDate, SUM(v.vote)/TIMEDIFF(NOW(), p.createdAt) as hotnessRanking FROM posts AS p JOIN users ON users.id=p.userId JOIN votes AS v ON p.id = v.postId GROUP BY p.id ORDER BY hotnessRanking DESC`, function(error, result) {
         if (error) {
             callback(error);
         }
@@ -57,6 +68,26 @@ app.get('/', function(request, response){
             </div>`);
     });
 });
+
+app.get('/createContent', function(request, response){
+    response.sendFile('form.html', { root: __dirname + '/'}, function (err) {
+        if (err) {
+            response.status(400).end();
+        }
+        else {
+            var parser = bodyParser.urlencoded();
+            app.post('/createContent', parser, function(request, response){
+                redditAPI.createPost(request.body, function(err, postCreated){
+                   response.send(`<h3>Your post was created successfully!!</h2>
+                   <h3><li><a href="${postCreated.url}">${postCreated.title}</a></li>
+                   </h3>
+                   `); 
+                });
+            });
+        }
+  });
+});
+
 
 
 var server = app.listen(process.env.PORT, process.env.IP, function() {

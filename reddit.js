@@ -58,9 +58,9 @@ module.exports = function RedditAPI(conn) {
           }
         });
       },
-      createPost: function(post, subredditId, callback) {
+      createPost: function(post, callback) {
         conn.query(
-          'INSERT INTO `posts` (`userId`, `title`, `url`, `createdAt`, `subredditId`) VALUES (?, ?, ?, ?, ?)', [post.userId, post.title, post.url, null, subredditId],
+          'INSERT INTO `posts` (`userId`, `title`, `url`, `createdAt`) VALUES (?, ?, ?, ?)', [1, post.title, post.url, null],
           function(err, result) {
             if (err) {
               callback(err);
@@ -71,7 +71,7 @@ module.exports = function RedditAPI(conn) {
               the post and send it to the caller!
               */
               conn.query(
-                'SELECT `id`,`title`,`url`,`userId`, `createdAt`, `updatedAt`, `subredditId` FROM `posts` WHERE `id` = ?', [result.insertId],
+                'SELECT `id`,`title`,`url`,`userId`, `createdAt`, `updatedAt` FROM `posts` WHERE `id` = ?', [result.insertId],
                 function(err, result) {
                   if (err) {
                     callback(err);
