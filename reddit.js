@@ -215,7 +215,7 @@ module.exports = function RedditAPI(conn) {
           }
         );
       },
-      getAllSubreddits: function(options, callback) {
+    getAllSubreddits: function(options, callback) {
         if (!callback) {
           callback = options;
           options = {};
@@ -241,7 +241,7 @@ module.exports = function RedditAPI(conn) {
             }
           });
       },
-      createComment: function(comment, callback) {
+    createComment: function(comment, callback) {
         var parentId = comment.parentId;
         conn.query(
           'INSERT INTO `comments` (`text`, `userId`, `postId`, `parentId`, `createdAt`) VALUES (?, ?, ?, ?, ?)', [comment.text, comment.userId, comment.postId, parentId ? parent : null, null],
@@ -269,6 +269,33 @@ module.exports = function RedditAPI(conn) {
           }
         );
       },
+    createOrUpdateVote: function(vote, callback){
+        var id = vote.postId;
+        var user = vote.userId;
+        var voteResult = vote.vote;
+        if (!id || !user || !voteResult) {
+            callback('postId, userId or vote fields are missing');
+        }
+        else if (voteResult < -1 || voteResult > 1){
+            callback('The vote must have a value of 1, 0 or -1');
+        }
+        else {
+            conn.query(
+        `INSERT INTO votes SET postId=id, userId=user, vote=voteResult ON DUPLICATE KEY UPDATE vote=voteResult`), function(err, result) {
+            if (err) {
+                callback(err);
+            }
+            else {
+                callback(result);
+            }
+            };
+        }
+    }
+    };
+};
+        
+
+      
     //   getCommentsForPost: function(postId, callback) {
     //     conn.query(`
     //             SELECT comments.text, comments.id, comments.postId, comments.createdAt, comments.updatedAt, c1.text AS c1Text, c1.id as c1Id, c1.postId as c1PostsId, c1.createdAt as c1CreatedAt, c1.updatedAt as c1UpdatedAt, c1.parentId as c1ParentId, c2.id as c2Id, c2.postId as c2PostsId, c2.createdAt as c2CreatedAt, c2.updatedAt as c2UpdatedAt, c2.parentId as c2ParentId FROM comments LEFT JOIN comments AS c1 ON comments.id = c1.parentId LEFT JOIN comments AS c2 ON c1.id = c2.parentId WHERE comments.parentId IS null ORDER BY comments.createdAt, c1.createdAt, c2.createdAt`,
@@ -330,7 +357,7 @@ module.exports = function RedditAPI(conn) {
     //   }
     // })
 
-}
-}
+
+
                 
                     
