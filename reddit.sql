@@ -67,3 +67,8 @@ CREATE TABLE `votes` (
 
 ALTER TABLE votes ADD FOREIGN KEY (postId) REFERENCES posts (id);
 ALTER TABLE votes ADD FOREIGN KEY (userId) REFERENCES users (id);
+
+CREATE TABLE `sessions` (
+    `userId` INT(11) NOT NULL,
+    `token` VARCHAR(255)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

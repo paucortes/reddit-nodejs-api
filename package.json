@@ -12,9 +12,11 @@
   "dependencies": {
     "bcrypt": "^0.8.6",
     "body-parser": "^1.15.0",
+    "cookie-parser": "^1.4.1",
     "express": "^4.13.4",
     "moment": "^2.13.0",
     "mysql": "^2.10.2",
-    "nodemon": "^1.9.2"
+    "nodemon": "^1.9.2",
+    "secure-random": "^1.1.1"
   }
 }

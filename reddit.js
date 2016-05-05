@@ -1,10 +1,10 @@
 var bcrypt = require('bcrypt');
+var secureRandom = require('secure-random');
 var HASH_ROUNDS = 10;
 
 module.exports = function RedditAPI(conn) {
-    return {
+    var allFunctions = {
       createUser: function(user, callback) {
-
         // first we have to hash the password...
         bcrypt.hash(user.password, HASH_ROUNDS, function(err, hashedPassword) {
           if (err) {
@@ -270,9 +270,9 @@ module.exports = function RedditAPI(conn) {
         );
       },
     createOrUpdateVote: function(vote, callback){
-        var id = vote.postId;
+        var id = parseInt(vote.postId);
         var user = vote.userId;
-        var voteResult = vote.vote;
+        var voteResult = parseInt(vote.vote);
         if (!id || !user || !voteResult) {
             callback('postId, userId or vote fields are missing');
         }
@@ -280,19 +280,117 @@ module.exports = function RedditAPI(conn) {
             callback('The vote must have a value of 1, 0 or -1');
         }
         else {
-            conn.query(
-        `INSERT INTO votes SET postId=id, userId=user, vote=voteResult ON DUPLICATE KEY UPDATE vote=voteResult`), function(err, result) {
+            conn.query(`INSERT INTO votes (postId, userId, vote) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE vote=${voteResult}` ,[id, user, voteResult], function(err, result) {
+            if (err) {
+                console.log(err);
+                callback(err);
+            }
+            else {
+                callback(null, "vote completed");
+                  }
+            });
+        }
+    },
+    getHomePage: function(sortingMethod, callback) {
+        if (!sortingMethod || sortingMethod === "new") {
+            conn.query('SELECT p.id AS postId, p.title AS postTitle, p.url AS postUrl, p.userId AS postCreatedByUserId, users.username AS postCreatedByUsername, p.createdAt AS postCreationDate FROM posts AS p JOIN users ON users.id=p.userId ORDER BY postCreationDate DESC LIMIT 25', function(error, result) {
+                if (error) {
+                    callback(error);
+                }
+                else {
+                    callback(null, result);
+                }
+            });
+        }
+        else if (sortingMethod === "top") {
+            conn.query(`SELECT p.id AS postId, p.title AS postTitle, p.url AS postUrl, p.userId AS postCreatedByUserId, users.username AS postCreatedByUsername, p.createdAt AS postCreationDate, SUM(v.vote) as voteScore FROM posts AS p JOIN users ON users.id=p.userId JOIN votes AS v ON p.id = v.postId GROUP BY p.id ORDER BY voteScore DESC`, function(error, result) {
+                if (error) {
+                    callback(error);
+                }
+                else {
+                    callback(null, result);
+                }
+            });
+        }
+        else if (sortingMethod === "hot") {
+            conn.query(`SELECT p.id AS postId, p.title AS postTitle, p.url AS postUrl, p.userId AS postCreatedByUserId, users.username AS postCreatedByUsername, p.createdAt AS postCreationDate, SUM(v.vote)/TIMEDIFF(NOW(), p.createdAt) as hotnessRanking FROM posts AS p JOIN users ON users.id=p.userId JOIN votes AS v ON p.id = v.postId GROUP BY p.id ORDER BY hotnessRanking DESC`, function(error, result) {
+                if (error) {
+                    callback(error);
+                }
+                else {
+                    callback(null, result);
+                }
+            });
+        }
+        else if (sortingMethod === "controversial") {
+            conn.query(`SELECT p.id AS postId, p.title AS postTitle, p.url AS postUrl, p.userId AS postCreatedByUserId, users.username AS postCreatedByUsername, p.createdAt AS postCreationDate, if(SUM(case when v.vote=1 then 1 else 0 end) < SUM(case when v.vote=-1 then 1 else 0 end), count(v.vote) * (SUM(case when v.vote=1 then 1 else 0 end) / SUM(case when v.vote=-1 then 1 else 0 end)), count(v.vote) * (SUM(case when v.vote=-1 then 1 else 0 end) / SUM(case when v.vote=1 then 1 else 0 end))) as controversial FROM posts AS p JOIN users ON users.id=p.userId JOIN votes AS v ON p.id = v.postId GROUP BY p.id sort by controversial desc`, function(error, result) {
+                if (error) {
+                    callback(error);
+                }
+                else {
+                    callback(null, result);
+                }
+            });
+        }
+    },
+    checkLogin: function(username, password, callback) {
+        conn.query('SELECT * FROM users WHERE username = ?', [username],function(error, result) {
+        if(!result) {
+            callback('username or password incorrect');
+        }
+        else {
+            var user = result[0];
+            var actualHashedPassword = result[0].password;
+            bcrypt.compare(password, actualHashedPassword, function(err, result) {
+                if (result === true) {
+                    callback(null, user);
+                }
+                else {
+                    callback('username or password incorrect');
+                }
+            });
+    }
+    });
+    },
+    createSessionToken: function() {
+        return secureRandom.randomArray(100).map(code => code.toString(36)).join('');
+    },
+    createSession: function(userId, callback) {
+        var token = allFunctions.createSessionToken();
+        conn.query('INSERT INTO sessions SET userId = ?, token = ?', [userId, token], function(err, result) {
             if (err) {
                 callback(err);
             }
             else {
-                callback(result);
+                callback(null, token);
             }
-            };
+        });
+    },
+    getUserFromSession: function(token, callback) {
+        var tokenToCheck = token;
+        conn.query('SELECT sessions.userId, sessions.token FROM sessions WHERE sessions.token = ?', [tokenToCheck], function(err, result) {
+            callback(null, result);
+        });
+    },
+    checkLoginToken: function(request, response, next) {
+        // check if there's a SESSION cookie...
+        if (request.cookies.SESSION) {
+            allFunctions.getUserFromSession(request.cookies.SESSION, function(err, user) {
+                // if we get back a user object, set it on the request. From now on, this request looks like it was made by this user as far as the rest of the code is concerned
+                if (user) {
+                    request.loggedInUser = user;
+                }
+                next();
+            });
+        }
+        else {
+            // if no SESSION cookie, move forward
+            next();
         }
     }
-    };
-};
+    }
+    return allFunctions;
+}
         
 
       
